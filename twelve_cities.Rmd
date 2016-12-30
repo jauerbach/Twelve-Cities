@@ -124,7 +124,7 @@ We also put weakly informative priors on $\mu$, $\beta$ and the $\sigma$'s. Howe
 
 #Model Fit
 
-We run the above model with four chains for 500 iterations yielding 1000 posterior samples after warm-up. In the generated quantities block, we calculate the finite sample standard deviations of each qualitative variable to identify major sources of variation (Gelman and Hill 2007). We also predict the counterfactual outcomes for each road at 25 and 30 mph. While we use all of the observations to fit the model parameters, we will only use predictions for New York City roads in 2015 with 25 and 30 mph speed limits for evaluating New York City roads in 2015 with 25 mph speed limits.
+We run the above model with four chains for 500 iterations yielding 1000 posterior samples after warm-up. In the generated quantities block, we calculate the finite sample standard deviations of each qualitative variable to identify major sources of variation (Gelman 2005, Gelman and Hill 2007). We also predict the counterfactual outcomes for each road at 25 and 30 mph. While we use all of the observations to fit the model parameters, we will only use predictions for New York City roads in 2015 with 25 and 30 mph speed limits for evaluating New York City roads in 2015 with 25 mph speed limits.
 
 ```{r stanrun, warning = FALSE, message = FALSE}
 G <- 8
@@ -340,6 +340,8 @@ We supplement the [FARS](ftp://ftp.nhtsa.dot.gov/fars/) data with a few other so
 ##V. References
 
 Fatality Analysis Reporting System (FARS) 2010-2015 Final File, 2015 Annual Report File (ARF)
+
+Gelman, Andrew. "Analysis of variance—why it is more important than ever." The Annals of Statistics 33.1 (2005): 1-53.
 
 Gelman, A. & Hill, J. 2007. Data Analysis using Regression and Multilevel/Hierarchical Models. New York: Cambridge University Press.
 
