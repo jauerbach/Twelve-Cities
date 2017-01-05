@@ -2,7 +2,9 @@
 title: "Twelve Cities"
 author: "Jonathan Auerbach and Rob Trangucci"
 date: "12/1/2016"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -131,10 +133,19 @@ G <- 8
 J <- apply(crash_data[,1:8],2,function(x) length(unique(x)))
 stan_dat <- aggregate(cbind(1,EXPR)~.,crash_data,sum)
 stan_dat <- stan_dat[order(stan_dat$YEAR),]
+pairs <- combn(head(Filter(function(x) !(x %in% c('BLTE','TFFC','COND')),names(stan_dat)),-3),2)
+ints <- sapply(1:dim(pairs)[2],function(x) {
+        interaction(stan_dat[,pairs[1,x]],stan_dat[,pairs[2,x]],drop=T)
+        }
+        ,simplify=F)
+J_ints <- sapply(ints,function(x) length(levels(x)))
+G_ints <- length(J_ints)
+ints_stan <- sapply(ints,function(x) as.integer(x))
 stan_dat_list <- with(stan_dat,  
                       list(N_train = which.max(stan_dat$YEAR)-1,
                            N = nrow(stan_dat),
                            J = J,
+                           J_ints = J_ints,
                            G = G,
                            COND = COND,
                            CITY = CITY,
@@ -144,12 +155,13 @@ stan_dat_list <- with(stan_dat,
                            LGHT = LGHT,
                            BLTE = BLTE,
                            TFFC = TFFC,                         
+                           ints = ints_stan,
                            count = V1,
                            EXPR = EXPR))
 
-model <- stan_model(file = 'model.stan')
-fit <- sampling(model, data = stan_dat_list, iter = 500, 
-                chains = 4, refresh = 10, cores = 4)
+model <- stan_model(file = 'model_anova.stan')
+fit <- sampling(model, data = stan_dat_list, iter = 2000, 
+                chains = 4, cores = 4)
 ```
 
 #Analysis of Variance
@@ -269,9 +281,9 @@ We can check our model by comparing the posterior predictions for the number of 
 pred25 <- extract(fit,c("y_pred25"))[[1]]
 pred30 <- extract(fit,c("y_pred30"))[[1]]
 
-city_30 <- apply(pred30[,stan_dat$SLIM[stan_dat$YEAR == 6] == 8],2,sum)
-pvalue_30 <- paste("p-value:",round(sum(city_30 > sum(stan_dat$V1[
-   stan_dat$SLIM == 8 & stan_dat$YEAR == 6]))/length(city_30),2))
+city_30 <- apply(pred30[,stan_dat$SLIM[stan_dat$YEAR == 6] == 7],1,sum)
+pvalue_30 <- paste("p-value:",round(mean(city_30 > sum(stan_dat$V1[
+   stan_dat$SLIM == 7 & stan_dat$YEAR == 6])),2))
 
 qplot(city_30) +
   theme_light(8) +
@@ -281,9 +293,9 @@ qplot(city_30) +
   "Figure 4.1: Posterior Draws of Total Deaths in 2015 on 30 mph roads (unweighted)") +
   geom_text(aes(label=pvalue_30),x=600,y=20)
 
-city_25 <- apply(pred25[,stan_dat$SLIM[stan_dat$YEAR == 6] == 7],2,sum)
-pvalue_25 <- paste("p-value:",round(sum(city_25 > sum(stan_dat$V1[
-   stan_dat$SLIM == 7 & stan_dat$YEAR == 6]))/length(city_25),2))
+city_25 <- apply(pred25[,stan_dat$SLIM[stan_dat$YEAR == 6] == 6],1,sum)
+pvalue_25 <- paste("p-value:",round(mean(city_25 > sum(stan_dat$V1[
+   stan_dat$SLIM == 6 & stan_dat$YEAR == 6])),2))
  
 qplot(city_25) +
   theme_light(8) +
@@ -323,9 +335,9 @@ nyc_pred30 <- pred30[,stan_dat$SLIM[stan_dat$YEAR==6] == 6 &
 WGHT <- stan_dat$WGHT[which(stan_dat$SLIM[stan_dat$YEAR==6] == 6 & 
         stan_dat$CITY[stan_dat$YEAR==6] == 12)]
 
-kable(rbind(
+rbind(
   round(quantile(apply(nyc_pred25 - nyc_pred30, 2, mean)),2),
-  round(quantile(apply(nyc_pred25 - nyc_pred30, 2, mean) * WGHT),2)))
+  round(quantile(apply(nyc_pred25 - nyc_pred30, 2, mean) * WGHT),2))
 ```
 
 ##IV. Appendix
