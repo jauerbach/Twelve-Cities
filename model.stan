@@ -44,15 +44,15 @@ transformed parameters {
   vector[N_train] cell_e;
   vector[N_train] mu_indiv;
   
-  COND_e = sds[1] * COND_eta;
-  CITY_e = sds[2] * CITY_eta;
-  YEAR_e = sds[3] * YEAR_eta;
-  SLIM_e = sds[4] * SLIM_eta;
-  SIGN_e = sds[5] * SIGN_eta;
-  LGHT_e = sds[6] * LGHT_eta;
-  BLTE_e = sds[7] * BLTE_eta; 
-  TFFC_e = sds[8] * TFFC_eta; 
-  cell_e = sds[9] * cell_eta;
+  COND_e = sds[1]     * COND_eta;
+  CITY_e = sds[2]     * CITY_eta;
+  YEAR_e = sds[3]     * YEAR_eta;
+  SLIM_e = sds[4]     * SLIM_eta;
+  SIGN_e = sds[5]     * SIGN_eta;
+  LGHT_e = sds[6]     * LGHT_eta;
+  BLTE_e = sds[7]     * BLTE_eta; 
+  TFFC_e = sds[8]     * TFFC_eta; 
+  cell_e = sds[G + 1] * cell_eta;
 
   for(n in 1:N_train)
   mu_indiv[n] = mu + offset_e * offset[n]
@@ -80,7 +80,7 @@ model {
   sds      ~ normal(0, 1);
   mu       ~ normal(0, 10);
   
- for (n in 1:N_train){
+ for(n in 1:N_train){
     target += poisson_log_lpmf(count[n] | mu_indiv[n]);
     target += -log1m_exp(-exp(mu_indiv[n]));
  }
@@ -95,9 +95,8 @@ generated quantities {
   real BLTE_sd;
   real TFFC_sd;
   real cell_sd;
-  vector[N - N_train] y_pred25;
-  vector[N - N_train] y_pred30;
-  vector[N - N_train] mu_indiv_pred;
+  vector[N - N_train] mu_indiv_pred25;
+  vector[N - N_train] mu_indiv_pred30;
   vector[N - N_train] cell_e_pred;
   
   COND_sd = sd(COND_e);
@@ -111,22 +110,27 @@ generated quantities {
   cell_sd = sd(cell_e);
   
   for (n in 1:(N - N_train)){
-    cell_e_pred[n]   = normal_rng(0, sds[9]);
-    mu_indiv_pred[n] = mu + offset_e * offset[N_train + n] 
-                          + COND_e[COND[N_train + n]]
-                          + CITY_e[CITY[N_train + n]]
-                          + YEAR_e[YEAR[N_train + n]]
-                          + SIGN_e[SIGN[N_train + n]]
-                          + LGHT_e[LGHT[N_train + n]]
-                          + BLTE_e[BLTE[N_train + n]]
-                          + TFFC_e[TFFC[N_train + n]]
-                          + cell_e_pred[n];
-//ifelse since during warmup large means cause prediction overflow and stan to terminate
-    if(mu_indiv_pred[n] > 5) {
-      y_pred25[n] = .5;
-      y_pred30[n] = .5;} else{
-      y_pred25[n] = poisson_log_rng(mu_indiv_pred[n] + SLIM_e[6]);
-      y_pred30[n] = poisson_log_rng(mu_indiv_pred[n] + SLIM_e[7]);
-    }
-  } 
+    cell_e_pred[n]     = normal_rng(0, sds[G+1]);
+    mu_indiv_pred25[n] = mu + offset_e * offset[N_train + n] 
+                            + COND_e[COND[N_train + n]]
+                            + CITY_e[CITY[N_train + n]]
+                            + YEAR_e[YEAR[N_train + n]]
+                            + SLIM_e[6]
+                            + SIGN_e[SIGN[N_train + n]]
+                            + LGHT_e[LGHT[N_train + n]]
+                            + BLTE_e[BLTE[N_train + n]]
+                            + TFFC_e[TFFC[N_train + n]]
+                            + cell_e_pred[n];
+    mu_indiv_pred30[n] = mu + offset_e * offset[N_train + n] 
+                            + COND_e[COND[N_train + n]]
+                            + CITY_e[CITY[N_train + n]]
+                            + YEAR_e[YEAR[N_train + n]]
+                            + SLIM_e[7]
+                            + SIGN_e[SIGN[N_train + n]]
+                            + LGHT_e[LGHT[N_train + n]]
+                            + BLTE_e[BLTE[N_train + n]]
+                            + TFFC_e[TFFC[N_train + n]]
+                            + cell_e_pred[n];
+
+ }
 }
