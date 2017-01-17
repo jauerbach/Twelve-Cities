@@ -363,7 +363,7 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "SLIM_e",][5:9,],
 
 ###Comparison
 
-Figure 3 suggests dropping variables YEAR and TFF and adding the following interactions to the regression: CITYxSLIM, LGHTxSLIM, BLTExSLIM, CONDxSLIM, LGHTxCOND and LGHTxCONDxSLIM. Figure 5 shows the resulting ANOVA plot using the posterior draws from this second model (Model 2) after repeating the same steps outlined in the Computation section. The within cell error term is much smaller than in Figure 3, suggesting that the new covariates jointly explain more variation than the original model. In addition, Figure 6.1, unlike Figure 4.5, shows a slightly higher average fatality rate at 30 than 25 MPH roads. Such a difference is small but potentially meaningful.
+Figure 3 suggests dropping variables YEAR and TFFC and adding the following interactions to the regression: CITYxSLIM, LGHTxSLIM, BLTExSLIM, CONDxSLIM, LGHTxCOND and LGHTxCONDxSLIM. Figure 5 shows the resulting ANOVA plot using the posterior draws from this second model (Model 2) after repeating the same steps outlined in the Computation section. The within cell error term is much smaller than in Figure 3, suggesting that the new covariates jointly explain more variation than the original model. In addition, Figure 6.1, unlike Figure 4.5, shows a slightly higher average fatality rate at 30 than 25 MPH roads. Such a difference is small but potentially meaningful.
 
 ```{r stanrun_int, warning = FALSE, message = FALSE,eval=FALSE}
 crash_data_int <- crash_data
