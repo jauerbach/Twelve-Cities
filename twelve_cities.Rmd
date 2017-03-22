@@ -12,6 +12,7 @@ library("knitr")
 library("rstan")
 library("reshape2")
 library("tikzDevice")
+library('dplyr')
 library("GGally")
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores(), 
@@ -22,31 +23,97 @@ crash_data <- read.csv("crash_data.csv")
 
 ##Summary of Analysis
 
-We investigate whether American cities can expect to achieve a meaningful reduction in pedestrian deaths by lowering the posted speed limit. We present our work in three sections. First we briefly motivate the problem and provide a description of the dataset. Second we fit a log-linear model and compare sources of variation with an analysis of variance. Finally we demonstrate a sample use case. We evaluate the decision to lower many of New York City's posted speed limits from 30 mph to 25 mph. In our evaluation we assume the assignment of speed limits to roads is ignorable given measured covariates, and we calculate the number of lives saved by estimating the causal effect of lowering the speed limit on New York City roads from 30 mph to 25 mph on 25 mph roads. We find some evidence that a lower speed limit does in fact reduce fatality rates, and our estimated causal effect is similar to the traditional before-after analysis espoused by policy analysts. Nevertheless, we conclude that adjusting the posted speed limit in urban environments does not correspond with a reliable reduction in pedestrian fatalities.
+We investigate whether American cities can expect to achieve a meaningful
+reduction in pedestrian deaths by lowering the posted speed limit. We present
+our work in three sections. First we briefly motivate the problem and provide a
+description of the dataset. Second we fit a log-linear model and compare sources
+of variation with an analysis of variance. Finally we demonstrate a sample use
+case. We evaluate the decision to lower many of New York City's posted speed
+limits from 30 mph to 25 mph. In our evaluation we assume the assignment of
+speed limits to roads is ignorable given measured covariates, and we calculate
+the number of lives saved by estimating the causal effect of lowering the speed
+limit on New York City roads from 30 mph to 25 mph on 25 mph roads. We find some
+evidence that a lower speed limit does in fact reduce fatality rates, and our
+estimated causal effect is similar to the traditional before-after analysis
+espoused by policy analysts. Nevertheless, we conclude that adjusting the posted
+speed limit in urban environments does not correspond with a reliable reduction
+in pedestrian fatalities.
 
-We would like to thank both reviewers for their insightful comments and helpful suggestions.
+We would like to thank both reviewers for their insightful comments and helpful
+suggestions.
 
 ##I. Introduction
 
 ###The Policy Question
 
-Over the last few years, American cities have started to establish aggressive countermeasures that force road users to make safer decisions. These policies are collectively known as Vision Zero and have a stated goal of creating a road system with zero traffic fatalities. 
+Over the last few years, American cities have started to establish aggressive
+countermeasures that force road users to make safer decisions. These policies
+are collectively known as Vision Zero and have a stated goal of creating a road
+system with zero traffic fatalities.
 
-In theory, Vision Zero is a comprehensive road investment strategy that prioritizes safety over vehicle mobility by anticipating human error and then slowing vehicles to the safest possible travel speed. Citywide road redesign and increased levels of enforcement and outreach are integral to a Vision Zero strategy [@tingvall2000vision]. These approaches are effective because they confine drivers, considerably reducing the chance that human error will result in a fatality. Yet such changes are costly to implement and challenging to sustain across an entire city. In practice, policymakers simply mandate that vehicles reduce their travel speed by lowering the posted speed limit below the speed for which the road was originally designed.
+In theory, Vision Zero is a comprehensive road investment strategy that
+prioritizes safety over vehicle mobility by anticipating human error and then
+slowing vehicles to the safest possible travel speed. Citywide road redesign and
+increased levels of enforcement and outreach are integral to a Vision Zero
+strategy [@tingvall2000vision]. These approaches are effective because they
+confine drivers, considerably reducing the chance that human error will result
+in a fatality. Yet such changes are costly to implement and challenging to
+sustain across an entire city. In practice, policymakers simply mandate that
+vehicles reduce their travel speed by lowering the posted speed limit below the
+speed for which the road was originally designed.
 
-Lowering the speed limit is politically expedient since speed limit changes can be implemented immediately and at relatively little cost, and they can be sustained across an entire city at no additional expense. But lowering a speed limit without improvements to road design, enforcement and outreach may do little to reduce fatalities if drivers feel little pressure to comply with the lower limit [@leaf1999literature]. In fact, the National Highway Safety Traffic Administration (NHSTA) rates the countermeasure "reduce and enforce speed limits" three out of five stars for improving safety because research indicates that actual speed is reduced by only a fraction of the change in the posted speed limit [@goodwin2010countermeasures].
+Lowering the speed limit is politically expedient since speed limit changes can
+be implemented immediately and at relatively little cost, and they can be
+sustained across an entire city at no additional expense. But lowering a speed
+limit without improvements to road design, enforcement and outreach may do
+little to reduce fatalities if drivers feel little pressure to comply with the
+lower limit [@leaf1999literature]. In fact, the National Highway Safety Traffic
+Administration (NHSTA) rates the countermeasure "reduce and enforce speed
+limits" three out of five stars for improving safety because research indicates
+that actual speed is reduced by only a fraction of the change in the posted
+speed limit [@goodwin2010countermeasures].
 
-Twelve major American cities have officially set a Vision Zero strategy in response to vocal advocates: Chicago, San Francisco, New York City, Boston, Los Angeles, Austin, Portland, Seattle, San Jose, San Diego, Washington D.C. and Denver. The majority of these strategies include adjustments to many or all of the posted speed limits. For example, New York City lowered the default citywide speed limit from 30 to 25 mph in 2015. San Francisco uniformly set the speed limit around schools to 15 mph and is considering a default citywide speed limit of 20 mph.
+Twelve major American cities have officially set a Vision Zero strategy in
+response to vocal advocates: Chicago, San Francisco, New York City, Boston, Los
+Angeles, Austin, Portland, Seattle, San Jose, San Diego, Washington D.C. and
+Denver. The majority of these strategies include adjustments to many or all of
+the posted speed limits. For example, New York City lowered the default citywide
+speed limit from 30 to 25 mph in 2015. San Francisco uniformly set the speed
+limit around schools to 15 mph and is considering a default citywide speed limit
+of 20 mph.
 
-The policy question is twofold. The first is descriptive: which aspects of roads drive pedestrian fatalities? The second is prescriptive: can a speed limit adjustment meaningfully reduce the number of pedestrian deaths?  We analyze data from the twelve Vision Zero cities to investigate these questions. To our knowledge this is the first study to systematically examine Vision Zero data across multiple cities.
+The policy question is twofold. The first is descriptive: which aspects of roads
+drive pedestrian fatalities? The second is prescriptive: can a speed limit
+adjustment meaningfully reduce the number of pedestrian deaths?  We analyze data
+from the twelve Vision Zero cities to investigate these questions. To our
+knowledge this is the first study to systematically examine Vision Zero data
+across multiple cities.
 
 ###The Data
 
-Our dataset comprises every pedestrian death in the twelve major American cities with Vision Zero policies between 2010 and 2015 for which there was no missing covariate information. The unit of our analysis, however, is the immediate region or road segment on which each death occurred. We consequently view our dataset as a random sample of regions, and we obtain sampling weights equal to the reciprocal of the probability each region would be included in the sample.
+Our dataset comprises every pedestrian death in the twelve major American cities
+with Vision Zero policies between 2010 and 2015 for which there was no missing
+covariate information. The unit of our analysis, however, is the immediate
+region or road segment on which each death occurred. We consequently view our
+dataset as a random sample of regions, and we obtain sampling weights equal to
+the reciprocal of the probability each region would be included in the sample.
 
-The dataset has the following eight qualitative variables describing each road region: the weather and surface condition (COND), the city (CITY), the year (YEAR), the posted speed limit (SLIM), the presence of various signs or signals (SIGN), the time and lighting (LGHT), the physical road characteristics or built environment (BLTE) and the annual average traffic density (TFFC). These variables can be thought of as batches of categories that describe similar aspects of road regions. The dataset has two quantitative variables: the number of pedestrians exposed to the road region (EXPR) and the estimated number of road regions represented by the observation (WGHT). More information on the dataset can be found in the Appendix.
+The dataset has the following eight qualitative variables describing each road
+region: the weather and surface condition (COND), the city (CITY), the year
+(YEAR), the posted speed limit (SLIM), the presence of various signs or signals
+(SIGN), the time and lighting (LGHT), the physical road characteristics or built
+environment (BLTE) and the annual average traffic density (TFFC). These
+variables can be thought of as batches of categories that describe similar
+aspects of road regions. The dataset has two quantitative variables: the number
+of pedestrians exposed to the road region (EXPR) and the estimated number of
+road regions represented by the observation (WGHT). More information on the
+dataset can be found in the Appendix.
 
-The first six observations of the dataset are displayed in Table 1 below. Table 2 shows the number of observations within the most common qualitative variable levels. Some of these variables are large, with COND, LGHT and BLTE having 25, 36 and 111 categories each. Throughout this analysis we present the qualitative variable levels in alphabetical order followed by the quantitative variables.
+The first six observations of the dataset are displayed in Table 1 below. Table
+2 shows the number of observations within the most common qualitative variable
+levels. Some of these variables are large, with COND, LGHT and BLTE having 25,
+36 and 111 categories each. Throughout this analysis we present the qualitative
+variable levels in alphabetical order followed by the quantitative variables.
 ```{r summary, warning = FALSE, message = FALSE}
 kable(round(head(crash_data[c(order(colnames(crash_data)[1:8]),9:10)]),2),
       caption="Example Observations of Dataset")
@@ -54,7 +121,11 @@ kable(summary(apply(crash_data[,order(colnames(crash_data)[1:8])],2,factor)),
       caption="Summary of Dataset")
 ```
 
-Figure 1.1 plots a histogram of the observations by city. Figure 1.2 plots these cities by the most common speed limits, and Figure 1.3 plots them by both the most common speed limit and the last four years of the dataset. Cities are arranged from smallest population at the top to largest population at the bottom (as of the 2010 Census).
+Figure 1.1 plots a histogram of the observations by city. Figure 1.2 plots these
+cities by the most common speed limits, and Figure 1.3 plots them by both the
+most common speed limit and the last four years of the dataset. Cities are
+arranged from smallest population at the top to largest population at the bottom
+(as of the 2010 Census).
 
 ```{r explore, warning = FALSE, message = FALSE}
 city_labels <- factor(crash_data$CITY,labels=c(
@@ -117,11 +188,29 @@ ggplot(crash_viz[crash_viz$SLIM %in% 6:8 &
               "major city in every year."))
 ```
 
-The 2015 reduction in New York City's default speed limit from 30 to 25 mph is apparent in Figure 1.3. In this analysis, we construct a model for the years 2010-2014 and estimate the causal effect of this 2015 policy. Reserving the observations made during the year 2015 for testing our model serves two purposes. First, an independent testing set establishes stronger evidence that the model is predictive of the potential number of fatalities that would occur as a result of either speed limit policy. Second, the training set reflects available information before the policy was adopted, and consequently an analysis similar to ours could have been performed before the policy was implemented. Coincidentally, our results are comparable to a naïve version of the "before-after" analysis favored by policymakers.
+The 2015 reduction in New York City's default speed limit from 30 to 25 mph is
+apparent in Figure 1.3. In this analysis, we construct a model for the years
+2010-2014 and estimate the causal effect of this 2015 policy. Reserving the
+observations made during the year 2015 for testing our model serves two
+purposes. First, an independent testing set establishes stronger evidence that
+the model is predictive of the potential number of fatalities that would occur
+as a result of either speed limit policy. Second, the training set reflects
+available information before the policy was adopted, and consequently an
+analysis similar to ours could have been performed before the policy was
+implemented. Coincidentally, our results are comparable to a naïve version of
+the "before-after" analysis favored by policymakers.
 
 ##II. Model and Inference
 
-Policymakers consider a wide variety of road characteristics when setting the posted speed limit. As a result, the relationship between pedestrian deaths and the speed limit is potentially confounded by any of the large number of qualitative variable categories in our dataset. We summarize the pairwise association of the eight qualitative variables using Cramer's V statistic in Figure 2. We find that no two covariates are completely associated although nearly every covariate exhibits moderate association. This suggests we should account for all eight qualitative variables in our initial model, and possibly some interactions.
+Policymakers consider a wide variety of road characteristics when setting the
+posted speed limit. As a result, the relationship between pedestrian deaths and
+the speed limit is potentially confounded by any of the large number of
+qualitative variable categories in our dataset. We summarize the pairwise
+association of the eight qualitative variables using Cramer's V statistic in
+Figure 2. We find that no two covariates are completely associated although
+nearly every covariate exhibits moderate association. This suggests we should
+account for all eight qualitative variables in our initial model, and possibly
+some interactions.
 
 ```{r colinearity, warning = FALSE, message = FALSE, fig.align="center"}
 cramer.v <- function(X1,X2)
@@ -151,17 +240,46 @@ ggcorr(data=NULL,cor_matrix = cor_mat,
               "environment."))
 ```
 
-With all eight qualitative variables, the data constitute a high dimensional contingency table where each cell is a low, non-zero count. It is conventional to employ a log-linear model for such data. Causal estimates can then be calculated by imputing the values of missing cells representing unobserved counterfactual outcomes and then comparing those outcomes that address the question of interest. However, the validity of these estimates depends on a variety of assumptions, and we briefly highlight three major assumptions. See @gelman2006data or @imbens2015causal for a general discussion.
+With all eight qualitative variables, the data constitute a high dimensional
+contingency table where each cell is a low, non-zero count. It is conventional
+to employ a log-linear model for such data. Causal estimates can then be
+calculated by imputing the values of missing cells representing unobserved
+counterfactual outcomes and then comparing those outcomes that address the
+question of interest. However, the validity of these estimates depends on a
+variety of assumptions, and we briefly highlight three major assumptions. See
+@gelman2006data or @imbens2015causal for a general discussion.
 
 ###Assumptions
 
-We assume the assignment of posted speed limits to road regions is strongly ignorable given the observed covariates. This implies that road regions with similar covariate values (in a particular city, near a school, up a hill, etc.) are equally likely to be designated a certain speed limit. In particular, among two such road regions, the one with fewer pedestrian deaths cannot be more or less likely to post any speed limit. 
+We assume the assignment of posted speed limits to road regions is strongly
+ignorable given the observed covariates. This implies that road regions with
+similar covariate values (in a particular city, near a school, up a hill, etc.)
+are equally likely to be designated a certain speed limit. In particular, among
+two such road regions, the one with fewer pedestrian deaths cannot be more or
+less likely to post any speed limit.
 
-This assumption would be violated if speed limit policy were based on an omitted variable that also influenced the fatality rate. For example, under Oregon state law, Portland can reduce speed limits to 20 mph provided additional signage indicating the presence of pedestrians is displayed [@essex2016transportation]. Failing to consider the presence of signs and signals would distort the estimated relationship of interest between the posted speed limit and pedestrian fatalities by inadvertently incorporating the relationship between signs and fatalities, which is not of explicit interest. Consultation with experts of speed limit policy informed our choice of covariates, and we believe we have accounted for all important information used by policymakers to set speed limits.
+This assumption would be violated if speed limit policy were based on an omitted
+variable that also influenced the fatality rate. For example, under Oregon state
+law, Portland can reduce speed limits to 20 mph provided additional signage
+indicating the presence of pedestrians is displayed [@essex2016transportation].
+Failing to consider the presence of signs and signals would distort the
+estimated relationship of interest between the posted speed limit and pedestrian
+fatalities by inadvertently incorporating the relationship between signs and
+fatalities, which is not of explicit interest. Consultation with experts of
+speed limit policy informed our choice of covariates, and we believe we have
+accounted for all important information used by policymakers to set speed
+limits.
 
-We assume no interference between the units of analysis, the road regions. This assumption would be violated if, for example, the fatality rate in any road region depended on the posted speed limit of a neighboring road region. While such interferences are possible, we anticipate meaningful interactions between urban roads to be rare since the factors leading to a collision are generally contained within a single road region.
+We assume no interference between the units of analysis, the road regions. This
+assumption would be violated if, for example, the fatality rate in any road
+region depended on the posted speed limit of a neighboring road region. While
+such interferences are possible, we anticipate meaningful interactions between
+urban roads to be rare since the factors leading to a collision are generally
+contained within a single road region.
 
-We rely on the following zero-truncated, log-linear model to predict the counterfactual outcomes. Let $y_{ij}$ denote the $i^{th}$ death in the $j^{th}$ covariate strata. The joint probability distribution can be factorized:
+We rely on the following zero-truncated, log-linear model to predict the
+counterfactual outcomes. Let $y_{ij}$ denote the $i^{th}$ death in the $j^{th}$
+covariate strata. The joint probability distribution can be factorized:
 \begin{align*}
 \epsilon     &\sim \text{ Normal}(0, \sigma_{\epsilon}) \\
 \alpha_i^.   &\sim \text{ Normal}(0, \sigma_i) \\ 
@@ -180,11 +298,25 @@ We rely on the following zero-truncated, log-linear model to predict the counter
 \end{align*}
 \vspace{1mm}
 
-To complete the specification of our first model (Model 1), we also put diffuse normal priors on $\mu$, $\beta$ and the $\sigma$. In the Comparison section we consider a second model (Model 2) where we add interactions between some of the explanatory variables.
+To complete the specification of our first model (Model 1), we also put diffuse
+normal priors on $\mu$, $\beta$ and the $\sigma$. In the Comparison section we
+consider a second model (Model 2) where we add interactions between some of the
+explanatory variables.
 
 ###Computation
 
-We sample from the posterior distribution of the parameters in the preceding model, excluding year 2015 from the dataset. Specifically, we use RStan [@RStan] to run four chains for 2,000 iterations each. This yields 4,000 posterior samples after discarding the first 1,000 iterations of each chain. In the Stan generated quantities block, we calculate the finite sample standard deviations of each qualitative variable. We also estimate the expected potential outcome for each road region in the dataset in the year 2015, first supposing the region had a 25 mph posted speed limit and then supposing it had a 30 mph posted speed limit. We use these estimates in the Criticism section to derive the posterior predictive distribution for model evaluation and in the Policy Analysis section to estimate the causal effect of New York City's default speed limit reduction. The corresponding Stan code can be found in the Appendix.
+We sample from the posterior distribution of the parameters in the preceding
+model, excluding year 2015 from the dataset. Specifically, we use RStan [@RStan]
+to run four chains for 2,000 iterations each. This yields 4,000 posterior
+samples after discarding the first 1,000 iterations of each chain. In the Stan
+generated quantities block, we calculate the finite sample standard deviations
+of each qualitative variable. We also estimate the expected potential outcome
+for each road region in the dataset in the year 2015, first supposing the region
+had a 25 mph posted speed limit and then supposing it had a 30 mph posted speed
+limit. We use these estimates in the Criticism section to derive the posterior
+predictive distribution for model evaluation and in the Policy Analysis section
+to estimate the causal effect of New York City's default speed limit reduction.
+The corresponding Stan code can be found in the Appendix.
 
 ```{r stanrun, warning = FALSE, message = FALSE}
 G <- 8
@@ -213,7 +345,20 @@ fit <- sampling(model, data = stan_dat_list, iter = 2000,
 
 ###Analysis of Variance
 
-Figures 3 and 4 display the Analysis of Variance using the posterior draws from the first model (Model 1) outlined above. Figure 3 shows the inner 50 and 95 percent quantiles of the finite sample standard deviation. The fat box represents the inner 50 percent range of the parameter, and the thin line represents the inner 95 percent range. We loosely interpret these regions as corresponding to the likely and possible values of the parameter respectively. Figure 3 demonstrates that time of day and lighting (LGHT) explain a significant portion of the pedestrian death rate. This makes sense as this variable captures the varying use of roads each day (i.e. commuting, tourism, dinner, the bar scene, etc.). City (CITY) and the built environment (BLTE) also explain much variation in pedestrian deaths. Surprisingly, there is little variation of deaths within cells (cell), years and levels of traffic (TFFC) suggesting that, through time of day and lighting, city and the built environment, we have adjusted for major sources of confounding.
+Figures 3 and 4 display the Analysis of Variance using the posterior draws from
+the first model (Model 1) outlined above. Figure 3 shows the inner 50 and 95
+percent quantiles of the finite sample standard deviation. The fat box
+represents the inner 50 percent range of the parameter, and the thin line
+represents the inner 95 percent range. We loosely interpret these regions as
+corresponding to the likely and possible values of the parameter respectively.
+Figure 3 demonstrates that time of day and lighting (LGHT) explain a significant
+portion of the pedestrian death rate. This makes sense as this variable captures
+the varying use of roads each day (i.e. commuting, tourism, dinner, the bar
+scene, etc.). City (CITY) and the built environment (BLTE) also explain much
+variation in pedestrian deaths. Surprisingly, there is little variation of
+deaths within cells (cell), years and levels of traffic (TFFC) suggesting that,
+through time of day and lighting, city and the built environment, we have
+adjusted for major sources of confounding.
 
 ```{r between, warning = FALSE, message = FALSE}
 btwn <- c("COND_sd","CITY_sd","YEAR_sd",
@@ -246,7 +391,13 @@ ggplot(coef_ggplot, aes(substr(btwn,1,4), coef_mean)) +
                      expand = c(0, 0))
 ```
 
-The following four figures display the individual drivers of pedestrian deaths. Figures 4.1 and 4.2 show the 50 and 95% quantiles of the mean effects. Figures 4.3 and 4.4 show just the city effects and speed limit effects respectively. Figure 4.4 shows that pedestrians are, in general, at similar risk of death at 30 as compared with 25 MPH roads. Of course, this is not a comparison of the speed limit effects within the same stratum. We make this comparison in the Policy Analysis section.
+The following four figures display the individual drivers of pedestrian deaths.
+Figures 4.1 and 4.2 show the 50 and 95% quantiles of the mean effects. Figures
+4.3 and 4.4 show just the city effects and speed limit effects respectively.
+Figure 4.4 shows that pedestrians are, in general, at similar risk of death at
+30 as compared with 25 MPH roads. Of course, this is not a comparison of the
+speed limit effects within the same stratum. We make this comparison in the
+Policy Analysis section.
 
 ```{r within, warning = FALSE, message = FALSE}
 wthn <- c("COND_e","CITY_e","YEAR_e","SLIM_e",
@@ -363,7 +514,15 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "SLIM_e",][5:9,],
 
 ###Comparison
 
-Figure 3 suggests dropping variables YEAR and TFFC and adding the following interactions to the regression: CITYxSLIM, LGHTxSLIM, BLTExSLIM, CONDxSLIM, LGHTxCOND and LGHTxCONDxSLIM. Figure 5 shows the resulting ANOVA plot using the posterior draws from this second model (Model 2) after repeating the same steps outlined in the Computation section. The within cell error term is much smaller than in Figure 3, suggesting that the new covariates jointly explain more variation than the original model. In addition, Figure 6.1, unlike Figure 4.5, shows a slightly higher average fatality rate at 30 than 25 MPH roads. Such a difference is small but potentially meaningful.
+Figure 3 suggests dropping variables YEAR and TFFC and adding the following
+interactions to the regression: CITYxSLIM, LGHTxSLIM, BLTExSLIM, CONDxSLIM,
+LGHTxCOND and LGHTxCONDxSLIM. Figure 5 shows the resulting ANOVA plot using the
+posterior draws from this second model (Model 2) after repeating the same steps
+outlined in the Computation section. The within cell error term is much smaller
+than in Figure 3, suggesting that the new covariates jointly explain more
+variation than the original model. In addition, Figure 6.1, unlike Figure 4.5,
+shows a slightly higher average fatality rate at 30 than 25 MPH roads. Such a
+difference is small but potentially meaningful.
 
 ```{r stanrun_int, warning = FALSE, message = FALSE,eval=FALSE}
 crash_data_int <- crash_data
@@ -371,25 +530,28 @@ crash_data_int <- rbind(crash_data_int,crash_data_int[crash_data_int$YEAR==6,])
 crash_data_int$SLIM_actual <- crash_data_int$SLIM
 crash_data_int$SLIM[crash_data_int$YEAR==6] <- 
   sort(rep(c(6,7),sum(crash_data_int$YEAR == 6)/2))
-for(int in c("CITYxSLIM","LGHTxSLIM","BLTExSLIM","CONDxSLIM","LGHTxCOND"))
-  crash_data_int[int] <- as.numeric(factor(interaction(
-    eval(parse(text=paste0("crash_data_int$",strsplit(int,"x")[[1]])[[1]])),
-    eval(parse(text=paste0("crash_data_int$",strsplit(int,"x")[[1]])[[2]]))),
-    labels = 1:length(unique(interaction(
-    eval(parse(text=paste0("crash_data_int$",strsplit(int,"x")[[1]])[[1]])),
-    eval(parse(text=paste0("crash_data_int$",strsplit(int,"x")[[1]])[[2]])))))
-  ))
-crash_data_int$LGHTxCONDxSLIM <-  as.numeric(
-  factor(with(crash_data_int,interaction(SLIM,LGHT,COND)),
-         labels = 1:length(unique(with(crash_data_int,interaction(SLIM,LGHT,COND)))))
-)
-crash_data_int$TEST <- crash_data_int$YEAR == 6 
-crash_data_int <- crash_data_int[,c(1:2,4:7,9:18)]
-G <- 12
-J <- apply(crash_data_int[, c(1:6,10:15)], 2, function(x) length(unique(x)))
-stan_dat_int <- aggregate(cbind(1,EXPR)~., crash_data_int, sum)
+col_nms <- sort(head(names(crash_data),-2))
+two_way <- combn(col_nms, 2)
+three_way <- combn(col_nms, 3)
+interaction_maker <- function(nms, df) {
+  df_cp <- df
+  interaction = apply(df_cp[,nms],1,function(x) paste(x, collapse='_'))
+  interaction = as.integer(as.factor(interaction))
+  int_nm = paste(nms,collapse='_')
+  return(interaction)
+}
+
+tt <- data.frame(apply(two_way, 2, function(x) interaction_maker(x, crash_data)))
+names(tt) <- apply(two_way, 2, function(x) paste(sort(x), collapse='_'))
+df <- bind_cols(crash_data, tt)
+TEST <- df$YEAR == 6 
+
+mod_nms <- Filter(function(x) x != 'EXPR' & x != 'TEST' & !grepl('YEAR',x) & !grepl('TFFC',x) & x != 'WGHT', names(df))
+G <- length(mod_nms)
+J <- apply(df[,mod_nms], 2, function(x) length(unique(x)))
+stan_dat_int <- aggregate(cbind(1,EXPR)~., df, sum)
 stan_dat_list <- with(stan_dat_int,  
-                      list(N_train = which.max(stan_dat_int$TEST)-1,
+                      list(N_train = which.max(TEST)-1,
                            N = nrow(stan_dat_int),
                            J = J,
                            G = G,
@@ -399,30 +561,59 @@ stan_dat_list <- with(stan_dat_int,
                            SIGN = SIGN,
                            LGHT = LGHT,
                            BLTE = BLTE,
-                           CITYxSLIM = CITYxSLIM,
-                           LGHTxSLIM = LGHTxSLIM,
-                           BLTExSLIM = BLTExSLIM,
-                           CONDxSLIM = CONDxSLIM,
-                           LGHTxCOND = LGHTxCOND,
-                           LGHTxCONDxSLIM = LGHTxCONDxSLIM,
+                           BLTExCITY = BLTE_CITY,
+                           BLTExCOND = BLTE_COND,
+                           BLTExLGHT = BLTE_LGHT,
+                           BLTExSIGN = BLTE_SIGN,
+                           BLTExSLIM = BLTE_SLIM,
+                           CITYxCOND = CITY_COND,
+                           CITYxLGHT = CITY_LGHT,
+                           CITYxSIGN = CITY_SIGN,
+                           CITYxSLIM = CITY_SLIM,
+                           CONDxLGHT = COND_LGHT,
+                           CONDxSIGN = COND_SIGN,
+                           CONDxSLIM = COND_SLIM,
+                           LGHTxSIGN = LGHT_SIGN,
+                           LGHTxSLIM = LGHT_SLIM,
+                           SIGNxSLIM = SIGN_SLIM,
+                           ints = as.matrix(stan_dat_int[,mod_nms]),
                            count = V1,
                            EXPR = EXPR))
-model_int <- stan_model(file = 'model_int.stan')
+model_int <- stan_model(file = 'model_int_simple.stan')
 fit_int <- sampling(model_int, data = stan_dat_list, iter = 2000, 
                     chains = 4, refresh = 10, cores = 4,
                     control = list(adapt_delta = 0.99))
+
+model_anova <- stan_model(file = 'model_int_simple_anova.stan')
+fit_anova <- sampling(model_anova, data = stan_dat_list, iter = 2000, 
+                    chains = 4, refresh = 10, cores = 4,
+                    control = list(adapt_delta = 0.99))
+
+samps <- extract(fit_int)
+sums <- data.frame(sds = colMeans(samps$sds),
+                   nm = c(names(J), 'cell'))
+
+samps_anova <- extract(fit_anova)
+sums_anova <- data.frame(sds = 1,
+                   nm = c(names(J), 'cell'))
 ```
+
 ```{r between_int, warning = FALSE, message = FALSE}
-btwn <- c("COND_sd","CITY_sd","SLIM_sd","SIGN_sd","LGHT_sd","BLTE_sd",
-          "cell_sd","CITYxSLIM_sd", "LGHTxSLIM_sd","BLTExSLIM_sd",
-          "CONDxSLIM_sd","LGHTxCOND_sd","LGHTxCONDxSLIM_sd")
-coefs <- data.frame(extract(fit_int,pars=btwn))
-coef_ggplot <- data.frame(coef_mean=apply(coefs,2,mean),btwn = btwn)
+nm <- c(names(J), 'cell')
+btwn <- c("COND","CITY","SLIM","SIGN","LGHT","BLTE",
+          "cell","CITY_SLIM", "LGHT_SLIM","BLTE_SLIM",
+          "COND_SLIM","COND_LGHT")
+inds <- match(btwn, nm)
+nms <- sapply(inds, function(x) ifelse(x == 22, 'cell_sd', paste0('sd_',x)))
+coefs <- data.frame(extract(fit_int,pars=nms))
+#btwn <- sapply(1:length(btwn), function(x) paste0(btwn[x], '_sd'))
+coef_ggplot <- data.frame(coef_mean=apply(coefs,2,mean),
+                          btwn = btwn)
 coef_ggplot$upper50 <- apply(coefs,2,quantile,probs=.75)
 coef_ggplot$lower50 <- apply(coefs,2,quantile,probs=.25)
 coef_ggplot$upper95 <- apply(coefs,2,quantile,probs=.975)
 coef_ggplot$lower95 <- apply(coefs,2,quantile,probs=.025)
-coef_ggplot$btwn <- substr(coef_ggplot$btwn,1,nchar(as.character(coef_ggplot$btwn))-3)
+#coef_ggplot$btwn <- substr(coef_ggplot$btwn,1,nchar(as.character(coef_ggplot$btwn))-3)
 
 ggplot(coef_ggplot, aes(btwn, coef_mean)) + 
   theme(plot.title = element_text(size=9, hjust = .5),
@@ -444,8 +635,9 @@ ggplot(coef_ggplot, aes(btwn, coef_mean)) +
                            "and speed limit and the built environment \nand speed",
                            "limit appear moderately predictive."))
 
-wthn <- c("SLIM_e","COND_e","BLTExSLIM_e","CONDxSLIM_e")
-coefs <- extract(fit_int,pars=wthn)
+wthn <- c("SLIM","COND","BLTE_SLIM","COND_SLIM")
+nms <- sapply(match(wthn, nm), function(x) paste0('e_',x))
+coefs <- extract(fit_int,pars=nms)
 coef_ggplot <- data.frame(wthn = character(),
                           numb = character(),
                           coef_mean=numeric(),
@@ -455,8 +647,8 @@ coef_ggplot <- data.frame(wthn = character(),
                           lower95 = numeric())
 for(var in seq_along(coefs)){
   coefs_temp <- coefs[[var]]
-  coef_ggplot_temp <- data.frame(wthn = wthn[var], 
-                                 numb = paste0(wthn[var],1:ncol(coefs_temp)),
+  coef_ggplot_temp <- data.frame(wthn = paste0(wthn[var],'_e'), 
+                                 numb = paste0(wthn[var],'_e',1:ncol(coefs_temp)),
                                  coef_mean=apply(coefs_temp,2,mean))
   coef_ggplot_temp$upper50 <- apply(coefs_temp,2,quantile,probs=.75)
   coef_ggplot_temp$lower50 <- apply(coefs_temp,2,quantile,probs=.25)
@@ -488,7 +680,9 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "SLIM_e",][5:9,],
                        "differences are likely too small to be meaningful."))
 ```
 
-While the average speed limit effect is small, Figures 6.3 and 6.4 display some meaningful interactions. For example, 25 mph roads regions appear safer than 30 mph road regions during cloudy weather and at large, four lane intersections.
+While the average speed limit effect is small, Figures 6.3 and 6.4 display some
+meaningful interactions. For example, 25 mph roads regions appear safer than 30
+mph road regions during cloudy weather and at large, four lane intersections.
 
 ```{r within_int, warning = FALSE, message = FALSE}
 ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "COND_e",][c(2,3,9,15,18,23,24),],
@@ -522,7 +716,7 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "COND_e",][c(2,3,9,15,18,23,24
                        "Rainstorms also appear to create hazardous \nconditions that",
                        "put pedestrians at increased risk."))
 
-ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "CONDxSLIM_e",][
+ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "COND_SLIM_e",][
         c(12,15,24,25,28,35,45,46),],
        cond_names = c("Clear/Dry", 
                       "Rain/Wet",
@@ -558,7 +752,7 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "CONDxSLIM_e",][
                        "appear to be much difference between speed limits during",
                        "clear weather."))
 
-ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "BLTExSLIM_e",][
+ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "BLTE_SLIM_e",][
         c(26,28,57,59,105,107,138,140),],
        cond_names = c("Two Lane Road", 
                       "Two Lane Intersec",
@@ -594,7 +788,17 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "BLTExSLIM_e",][
 
 ###Criticism
 
-We can check both of the preceding models by comparing the posterior predictions for the number of deaths on the 2015 sample roads with the actual number of deaths observed on those roads [@gelman2014bayesian]. This ensures the models do not over predict or under predict the number of deaths in each stratum. We use a p-value, the percentage of samples from the predictive distribution exceeding the observed number of deaths, to indicate the suitability of the models for prediction. Figures 7.1 and 7.2 demonstrate that the original model without interactions coincides with the observed data for 30 mph road regions but under predicts the observed data for 25 mph road regions. Figure 7.3 shows that the second model with interactions better fits the observed data. We will use this model in the Policy Analysis section.
+We can check both of the preceding models by comparing the posterior predictions
+for the number of deaths on the 2015 sample roads with the actual number of
+deaths observed on those roads [@gelman2014bayesian]. This ensures the models do
+not over predict or under predict the number of deaths in each stratum. We use a
+p-value, the percentage of samples from the predictive distribution exceeding
+the observed number of deaths, to indicate the suitability of the models for
+prediction. Figures 7.1 and 7.2 demonstrate that the original model without
+interactions coincides with the observed data for 30 mph road regions but under
+predicts the observed data for 25 mph road regions. Figure 7.3 shows that the
+second model with interactions better fits the observed data. We will use this
+model in the Policy Analysis section.
 
 ```{r check, warning = FALSE, message = FALSE}
 rpois_trunc <- function(log_rate){
@@ -698,9 +902,20 @@ qplot(city_25_int) +
 
 ##III. Policy Analysis
 
-A naïve before and after study would compare the number of pedestrian deaths in New York City in 2015 with the number of pedestrian deaths in New York City in 2014 or the 2010-2014 average. These comparisons are extremely popular among policy analysts because they are simple to calculate and simple to interpret: the same units are compared before and after treatment. The use of before-after analysis in transportation research is discussed at length in @hauer2005cause and @hauer2015art. 
+A naïve before and after study would compare the number of pedestrian deaths in
+New York City in 2015 with the number of pedestrian deaths in New York City in
+2014 or the 2010-2014 average. These comparisons are extremely popular among
+policy analysts because they are simple to calculate and simple to interpret:
+the same units are compared before and after treatment. The use of before-after
+analysis in transportation research is discussed at length in @hauer2005cause
+and @hauer2015art.
 
-The number of pedestrian deaths in New York City each year is displayed in Figure 8.1, and a before-after comparison would estimate four or six lives saved respectively. This estimate, however, fails to account for possible factors that influence the number of pedestrian deaths and that changed in tandem with speed limits. As a result, we cannot rule out the influence of additional policy changes or other external factors.
+The number of pedestrian deaths in New York City each year is displayed in
+Figure 8.1, and a before-after comparison would estimate four or six lives saved
+respectively. This estimate, however, fails to account for possible factors that
+influence the number of pedestrian deaths and that changed in tandem with speed
+limits. As a result, we cannot rule out the influence of additional policy
+changes or other external factors.
 
 ```{r before_after, warning = FALSE, message = FALSE}
 ggplot(aggregate(V1 ~ YEAR,
@@ -722,7 +937,17 @@ ggplot(aggregate(V1 ~ YEAR,
                        "2015 to Vision Zero policy."))
 ```
 
-For example, the predictive importance of LGHT and COND that we identified in the ANOVA plots suggest that fatalities are largely driven by changes in weather, lighting and road surface conditions. Figure 8.2 shows the number of rainstorms in New York City relative to 2010 follows a similar trend to the fatality rate relative to 2010. If we interpret Figure 6.2 to suggest that rain storms increase the number of pedestrian deaths than Figure 8.2 implies that the number of pedestrian fatalities in New York City have actually increased after adjusting for the number of rain storms. Of course this is one of several plausible explanations for the trend of pedestrian fatalities. The purpose of Figure 8.2 is to simply motivate the necessity of accounting for major sources of confounding.
+For example, the predictive importance of LGHT and COND that we identified in
+the ANOVA plots suggest that fatalities are largely driven by changes in
+weather, lighting and road surface conditions. Figure 8.2 shows the number of
+rainstorms in New York City relative to 2010 follows a similar trend to the
+fatality rate relative to 2010. If we interpret Figure 6.2 to suggest that rain
+storms increase the number of pedestrian deaths than Figure 8.2 implies that the
+number of pedestrian fatalities in New York City have actually increased after
+adjusting for the number of rain storms. Of course this is one of several
+plausible explanations for the trend of pedestrian fatalities. The purpose of
+Figure 8.2 is to simply motivate the necessity of accounting for major sources
+of confounding.
 
 ```{r explanation, warning = FALSE, message = FALSE}
 yearly_rainstorm <- function(x) {
@@ -760,7 +985,13 @@ ggplot(deaths) +
                        "storms, fatalities have actually increased in 2015."))
 ```
 
-We conclude by calculating the effect of New York City's speed limit reduction using the posterior predictions from both models in the previous section. Ignoring the sampling weights, the estimate corresponds to the set of road regions in New York City for which there was a death in 2015. Using the sampling weights, the estimate corresponds to all road regions in New York City. Table 3 shows that under Model 2, the most frequent outcome after lowering the speed limit is coincidentally similar to the before-after estimate of four or six.
+We conclude by calculating the effect of New York City's speed limit reduction
+using the posterior predictions from both models in the previous section.
+Ignoring the sampling weights, the estimate corresponds to the set of road
+regions in New York City for which there was a death in 2015. Using the sampling
+weights, the estimate corresponds to all road regions in New York City. Table 3
+shows that under Model 2, the most frequent outcome after lowering the speed
+limit is coincidentally similar to the before-after estimate of four or six.
 
 ```{r policy_evaluation, warning = FALSE, message = FALSE}
 nyc_pred25 <- pred25[,stan_dat$SLIM[stan_dat$YEAR==6] == 6 & 
@@ -799,16 +1030,38 @@ kable(results, caption="Estimated Number of Deaths due to Lowering Speed Limit
       from 30 to 25 MPH on 25 MPH roads in NYC")
 ```
 
-The estimated probability of witnessing an increase in deaths after the policy change is `r round(sum(apply(nyc_pred25_int - nyc_pred30_int, 1, function(x,w) sum(x*w), w = WGHT_int)> 0)/4000,2)` percent. We conclude that while the policy appears beneficial, there is too much uncertainty in the parameter estimates and thus too much variation in the predictive distribution, for changes in the number of pedestrian deaths each year to be meaningfully attributed to policy.
+The estimated probability of witnessing an increase in deaths after the policy
+change is `r round(sum(apply(nyc_pred25_int - nyc_pred30_int, 1, function(x,w)
+sum(x*w), w = WGHT_int)> 0)/4000,2)` percent. We conclude that while the policy
+appears beneficial, there is too much uncertainty in the parameter estimates and
+thus too much variation in the predictive distribution, for changes in the
+number of pedestrian deaths each year to be meaningfully attributed to policy.
 
 ##IV. Appendix
 
 ###Data Sources
 
-Our primary dataset is the Fatality Analysis Reporting System (FARS) collected by the National Highway Traffic Safety Administration. FARS contains a census of vehicle related deaths in the United States with a large number of covariates detailing the road, vehicle and persons involved. Road refers to the general area in which the death took place. This is generally a road segment or an intersection.
+Our primary dataset is the Fatality Analysis Reporting System (FARS) collected
+by the National Highway Traffic Safety Administration. FARS contains a census of
+vehicle related deaths in the United States with a large number of covariates
+detailing the road, vehicle and persons involved. Road refers to the general
+area in which the death took place. This is generally a road segment or an
+intersection.
 
-We supplement the [FARS](ftp://ftp.nhtsa.dot.gov/fars/) data with a few other sources. These sources are not included in the References section but their websites have been linked to here. We obtain sampling weights for each FARS observation using the [GES](ftp://ftp.nhtsa.dot.gov/GES). Missing New York City speed limit data in FARS is obtained from [NYC DOT](http://www.nyc.gov/html/dot/html/about/datafeeds.shtml) using the shapefiles of speed limits. The pedestrian population on each road was calculated following the 
-[Census Bureau](https://www.census.gov/hhes/commuting/data/calculations.html) using the [TPP](https://www.fhwa.dot.gov/planning/census_issues/ctpp/data_products/2006-2010_tract_flows/) and [PDB](http://www.census.gov/research/data/planning_database/). Average annual daily traffic was estimated from [HPMS](http://www.fhwa.dot.gov/policyinformation/hpms/shapefiles.cfm). The TFFC variable is discretized by the average number of vehciles per second.
+We supplement the [FARS](ftp://ftp.nhtsa.dot.gov/fars/) data with a few other
+sources. These sources are not included in the References section but their
+websites have been linked to here. We obtain sampling weights for each FARS
+observation using the [GES](ftp://ftp.nhtsa.dot.gov/GES). Missing New York City
+speed limit data in FARS is obtained from [NYC
+DOT](http://www.nyc.gov/html/dot/html/about/datafeeds.shtml) using the
+shapefiles of speed limits. The pedestrian population on each road was
+calculated following the [Census
+Bureau](https://www.census.gov/hhes/commuting/data/calculations.html) using the
+[TPP](https://www.fhwa.dot.gov/planning/census_issues/ctpp/data_products/2006-2010_tract_flows/)
+and [PDB](http://www.census.gov/research/data/planning_database/). Average
+annual daily traffic was estimated from
+[HPMS](http://www.fhwa.dot.gov/policyinformation/hpms/shapefiles.cfm). The TFFC
+variable is discretized by the average number of vehciles per second.
 
 ###Stan Code
 
