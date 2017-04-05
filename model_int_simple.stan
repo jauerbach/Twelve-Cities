@@ -171,6 +171,7 @@ generated quantities {
   real cell_sd;
   vector[N - N_train] mu_indiv_pred;
   vector[N - N_train] cell_e_pred;
+  vector[N_train] log_lik;
 
   sd_1 = sd(e_1);
   sd_2 = sd(e_2);
@@ -194,6 +195,10 @@ generated quantities {
   sd_20 = sd(e_20);
   sd_21 = sd(e_21);
   cell_sd = sd(cell_e);
+  
+  for (n in 1:N_train)
+    log_lik[n] = -log1m_exp(-exp(mu_indiv[n]))
+                + poisson_log_lpmf(count[n] | mu_indiv[n]);
   
   for (n in 1:(N - N_train)){
     cell_e_pred[n] = normal_rng(0, sds[G+1]);

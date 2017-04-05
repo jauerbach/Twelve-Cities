@@ -13,6 +13,7 @@ library("rstan")
 library("reshape2")
 library("tikzDevice")
 library('dplyr')
+library('loo')
 library("GGally")
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores(), 
@@ -584,10 +585,18 @@ fit_int <- sampling(model_int, data = stan_dat_list, iter = 2000,
                     chains = 4, refresh = 10, cores = 4,
                     control = list(adapt_delta = 0.99))
 
+log_lik_int <- loo::extract_log_lik(fit_int)
+loo_int <- loo::loo(log_lik_int)
+  
 model_anova <- stan_model(file = 'model_int_simple_anova.stan')
 fit_anova <- sampling(model_anova, data = stan_dat_list, iter = 2000, 
                     chains = 4, refresh = 10, cores = 4,
                     control = list(adapt_delta = 0.99))
+
+log_lik_anova <- loo::extract_log_lik(fit_anova)
+loo_anova <- loo::loo(log_lik_anova)
+
+comp <- compare(loo_int, loo_anova)
 
 samps <- extract(fit_int)
 sums <- data.frame(sds = colMeans(samps$sds),
