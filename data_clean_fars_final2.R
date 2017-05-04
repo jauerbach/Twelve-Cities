@@ -426,7 +426,7 @@ ggplot(coef_ggplot, aes(btwn, coef_mean)) +
        caption = paste("This figure exhibits inner 50 and 90 percent intervals",
                        "for the finite-population standard deviations of each",
                        "batch of explanatory variables. "))
-
+ggsave('anova_e.pdf')
 wthn <- c("SLIM","COND","BLTE","LGHT","CITY",'BLTE_ROUTE','INT_ROUTE')
 nms <- sapply(match(wthn, nm), function(x) paste0('e_',x))
 coefs <- extract(fit_int,pars=nms)
@@ -470,6 +470,7 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "SLIM_e",][5:9,],
                        "holding all else constant. With this model, slight",
                        "average speed limit effects are observable although \nthese",
                        "differences are likely too small to be meaningful."))
+ggsave('slim_e.pdf')
 
 df_city <- unique(stan_dat[,c('CITY','CITY_NM')])
 df_city$label <- c(
@@ -498,6 +499,7 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "CITY_e",],
                        "city effects. Effects are interpreted as the log",
                        "of the expected multiplicative \nincrease in the fatality rate",
                        "holding all else constant"))
+ggsave('city_e.pdf')
 
 lght_df <- unique(stan_dat[,c('LGHT','LGT_COND','hour_block','wend')]) %>%
   arrange(LGHT)
@@ -604,6 +606,7 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "LGHT_e",],
                        "lighting effects. Effects are interpreted as the log",
                        "of the expected multiplicative \nincrease in the fatality rate",
                        "holding all else constant"))
+ggsave('lighting_e.pdf')
 
 ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "COND_e",],
                   slim_names = cond_df$label)) +
@@ -623,6 +626,7 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "COND_e",],
                        "the road condition effect. Effects are interpreted as the log",
                        "of the expected multiplicative \nincrease in the fatality rate",
                        "holding all else equal."))
+ggsave('cond_e.pdf')
 
 ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "BLTE_e",],
                   slim_names = blte_df$label)) +
@@ -642,6 +646,7 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "BLTE_e",],
                        "the built environment effect. Effects are interpreted as the log",
                        "of the expected multiplicative \nincrease in the fatality rate",
                        "holding all else equal."))
+ggsave('blte_e.pdf')
 
 ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "BLTE_ROUTE_e",],
                   slim_names = blte_route_df$label)) +
@@ -661,6 +666,7 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "BLTE_ROUTE_e",],
                        "the built environment interacted with road type. Effects are interpreted as the log",
                        "of the expected multiplicative \nincrease in the fatality rate",
                        "holding all else equal"))
+ggsave('blte_route_e.pdf')
 
 ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "INT_ROUTE_e",],
                   slim_names = int_route_df$label)) +
@@ -680,6 +686,7 @@ ggplot(data.frame(coef_ggplot[coef_ggplot$wthn == "INT_ROUTE_e",],
                        "intersection and route effects. Effects are interpreted as the log",
                        "of the expected multiplicative \nincrease in the fatality rate",
                        "holding all else constant. "))
+ggsave('int_route_e.pdf')
 
 dat_2015 <- stan_dat_int %>% filter(year_lab == 2015)
 pred30 <- apply(extract(fit_int,c("mu_indiv_pred30"))[[1]], c(1,2), poisson_log_trunc_rng)
@@ -708,6 +715,7 @@ qplot(city_30) +
                     "ensure that the model is predictive of the fatality rate \nof the",
                     "roads that did not have their posted speed limits reduced to 25",
                     "mph."))
+ggsave('all_30_oos.pdf')
 
 pred25 <- apply(extract(fit_int,c("mu_indiv_pred25"))[[1]], c(1,2), poisson_log_trunc_rng)
 city_25 <- apply(pred25[,dat_2015$SLIM == 6],1,sum)
@@ -734,6 +742,7 @@ qplot(city_25) +
                     "the number observed in 2015. The purpose of this figure is to",
                     "ensure that the model is predictive of the fatality rate \nof the",
                     "roads that had their posted speed limits reduced to 25 mph."))
+ggsave('all_25_oos.pdf')
 
 pred_int <- apply(extract(fit_int_nyc,c("mu_indiv_pred"))[[1]], c(1,2), poisson_log_trunc_rng)
 
@@ -760,13 +769,4 @@ qplot(city_25_int) +
                     "the number observed in 2015. The purpose of this figure is to",
                     "ensure that the model is predictive of the fatality rate \nof the",
                     "roads that had their posted speed limits reduced to 25 mph,"))
-
-pred_ins <- apply(extract(fit_int,c("mu_indiv"))[[1]], c(1,2), poisson_log_trunc_rng)
-
-loo_nyc <- loo::extract_log_lik(fit_int_nyc)
-loo_norm <- loo::extract_log_lik(readRDS('fit_anova_year_simple_fit.RDS'))
-
-loo_nyc_obj <- loo::loo(loo_nyc)
-loo_norm_obj <- loo::loo(loo_norm)
-
-compare(loo_norm_obj, loo_nyc_obj)
+ggsave('nyc_oos_25.pdf')
